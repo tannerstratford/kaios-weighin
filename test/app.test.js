@@ -39,4 +39,45 @@ assert.strictEqual(Math.round(M.toDisplay(r.min, "lb")), 144); assert.strictEqua
 assert.strictEqual(M.bmr(100, 180, 30, "male"), 1980); assert.strictEqual(M.bmr(100, 180, 30, "female"), 1814);
 const now = 100 * 86400000, log = [{ t: now - 86400000, kg: 100 }, { t: now - 2 * 86400000, kg: 102 }, { t: now - 20 * 86400000, kg: 110 }];
 assert.strictEqual(M.average(log, 7, now).kg, 101); assert.strictEqual(M.average(log, 30, now).n, 3); assert.strictEqual(M.average([], 7, now), null);
-console.log("all passed");
+const bd = M.birthDate(1998, 3, 15);
+assert.strictEqual(bd, "1998-03-15");
+assert.strictEqual(M.birthDate(2001, 2, 30), null);
+assert.strictEqual(M.ageOn(bd, new Date(2026, 2, 14).getTime()), 27);
+assert.strictEqual(M.ageOn(bd, new Date(2026, 2, 15).getTime()), 28);
+const st2 = new Store(mem());
+assert.strictEqual(st2.hasData(), false);
+st2.cfg.cm = 180; st2.cfg.birth = bd;
+assert.strictEqual(st2.hasProfile(), true);
+const st3 = new Store(mem());
+assert.ok(st3.restore({ cfg: st2.cfg, log: [{ t: 1, kg: 90 }] }));
+assert.strictEqual(st3.log.length, 1); assert.strictEqual(st3.hasProfile(), true);
+assert.strictEqual(st3.restore({ cfg: null }), false);
+
+const { FileBackup } = require("../src/filebackup.js");
+function ds(failAdd) {
+  const files = {}, later = fn => { const r = {}; setTimeout(() => fn(r), 0); return r; };
+  const done = (r, v) => { r.result = v; r.onsuccess && r.onsuccess(); };
+  const fail = (r, n) => { r.error = { name: n }; r.onerror && r.onerror(); };
+  return { files, failAdd,
+    get(n) { return later(r => n in files ? done(r, files[n]) : fail(r, "NotFoundError")); },
+    delete(n) { return later(r => { delete files[n]; done(r, n); }); },
+    addNamed(b, n) { return later(r => this.failAdd ? fail(r, "NoSpace") : (files[n] = b, done(r, n))); } };
+}
+(async () => {
+  const d = ds(false), nav = { b2g: { getDeviceStorage: () => d } };
+  const a = new FileBackup("weighin", nav);
+  assert.strictEqual(await a.load(), null);
+  assert.strictEqual(await a.save({ n: 1 }), true);
+  await new Promise(r => setTimeout(r, 2));
+  assert.strictEqual(await a.save({ n: 1 }), false, "unchanged data is not rewritten");
+  assert.strictEqual(await a.save({ n: 2 }), true);
+  assert.deepStrictEqual(Object.keys(d.files).sort(), ["weighin-backup-a.json", "weighin-backup-b.json"]);
+  const fresh = new FileBackup("weighin", nav);
+  assert.deepStrictEqual(await fresh.load(), { n: 2 });
+  d.failAdd = true;
+  await assert.rejects(fresh.save({ n: 3 }));
+  d.failAdd = false;
+  assert.deepStrictEqual(await new FileBackup("weighin", nav).load(), { n: 2 }, "failed write keeps last good copy");
+  assert.strictEqual(await new FileBackup("other", nav).load(), null);
+  console.log("all passed");
+})().catch(e => { console.error(e); process.exit(1); });

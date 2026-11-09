@@ -5,6 +5,7 @@
   var M = Metrics;
   var screen = "home", sel = 0, form = null, confirmDel = false;
   var status = "Starting", diag = [], justRecorded = null;
+  var backup = new FileBackup("weighin", navigator), backupState = "Not saved yet", backupTimer = null;
 
   function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
   function unit() { return store.cfg.unit; }
@@ -36,6 +37,7 @@
     } else {
       h += '<div class="big">--</div><div class="center dim">No weigh-ins yet</div>';
     }
+    if (backupState === "Failed") h += '<div class="center dim">Backup failed. See Settings</div>';
     if (justRecorded) h += '<div class="status">Saved ' + fmtU(justRecorded.kg) + "</div>";
     h += '<div class="status">' + esc(status) + "</div>";
     view.innerHTML = h;
@@ -50,12 +52,13 @@
     row("7-day avg", a7 ? fmtU(a7.kg) : "--");
     row("30-day avg", a30 ? fmtU(a30.kg) : "--");
     row("Healthy range", Math.round(M.toDisplay(r.min, unit())) + "-" + Math.round(M.toDisplay(r.max, unit())) + " " + unit());
-    if (e) row("BMR est.", M.bmr(e.kg, c.cm, c.age, c.sex) + " kcal");
+    if (e) row("BMR est.", M.bmr(e.kg, c.cm, M.ageOn(c.birth, now), c.sex) + " kcal");
     if (c.goalKg) {
       row("Goal", fmtU(c.goalKg));
       if (e) row("To goal", signed(c.goalKg - e.kg) + " " + unit());
     }
     row("Weigh-ins", store.log.length);
+    row("Backup", backupState);
     view.innerHTML = h;
     keys("", "", "Back");
   }
@@ -82,8 +85,9 @@
 
   function openSettings() {
     var c = store.cfg, h = c.cm ? M.ftInFromCm(c.cm) : { ft: "", inch: "" };
+    var b = c.birth ? c.birth.split("-") : ["", "", ""];
     form = {
-      ft: h.ft, inch: h.inch, age: c.age || "", sex: c.sex, unit: c.unit,
+      ft: h.ft, inch: h.inch, by: b[0], bm: b[1], bd: b[2], sex: c.sex, unit: c.unit,
       goal: c.goalKg ? fmt(c.goalKg) : ""
     };
     sel = 0; screen = "settings"; draw();
@@ -91,7 +95,7 @@
   }
 
   var FIELDS = [
-    ["ft", "Height ft"], ["inch", "Height in"], ["age", "Age"], ["sex", "Sex"], ["unit", "Units"], ["goal", "Goal weight"],
+    ["ft", "Height ft"], ["inch", "Height in"], ["by", "Birth year"], ["bm", "Birth month"], ["bd", "Birth day"], ["sex", "Sex"], ["unit", "Units"], ["goal", "Goal weight"],
     ["forget", "Forget scale"], ["diag", "Diagnostics"]
   ];
 
@@ -105,6 +109,8 @@
       else h += '<label class="' + cls + '"><span>' + f[1] + '</span><input id="f-' + k + '" inputmode="decimal" value="' + esc(form[k]) + '"></label>';
     });
     view.innerHTML = h;
+    var row = view.querySelectorAll(".field")[sel];
+    if (row) row.scrollIntoView({ block: "nearest" });
     keys("Cancel", "", "Save");
   }
 
@@ -122,13 +128,15 @@
 
   function saveSettings() {
     captureField();
-    var ft = parseInt(form.ft, 10), inch = parseFloat(form.inch || 0), age = parseInt(form.age, 10);
+    var ft = parseInt(form.ft, 10), inch = parseFloat(form.inch || 0);
+    var birth = M.birthDate(parseInt(form.by, 10), parseInt(form.bm, 10), parseInt(form.bd, 10));
+    var age = birth ? M.ageOn(birth, Date.now()) : -1;
     if (!(ft >= 3 && ft <= 8) || !(inch >= 0 && inch < 12) || !(age >= 2 && age <= 120)) {
-      title.textContent = "Check height and age";
+      title.textContent = "Check height and birth date";
       return;
     }
     var c = store.cfg, goal = parseFloat(form.goal);
-    c.unit = form.unit; c.sex = form.sex; c.age = age; c.cm = M.cmFromFtIn(ft, inch);
+    c.unit = form.unit; c.sex = form.sex; c.birth = birth; c.cm = M.cmFromFtIn(ft, inch);
     c.goalKg = goal > 0 ? M.fromDisplay(goal, form.unit) : 0;
     store.saveCfg();
     screen = "home"; draw(); startScan();
@@ -217,5 +225,39 @@
     else startScan();
   });
 
-  if (store.hasProfile()) { draw(); startScan(); } else openSettings();
+  function logDiag(m) { diag.push(m); if (diag.length > 80) diag.shift(); }
+
+  function saveBackup() {
+    if (!store.hasData()) return;
+    backup.save(store.snapshot()).then(function (wrote) {
+      if (wrote) { backupState = "Saved " + when(Date.now()); logDiag("backup saved"); }
+      else if (backupState === "Not saved yet") backupState = "Up to date";
+      if (screen === "home" || screen === "stats") draw();
+    }, function (e) {
+      backupState = "Failed";
+      logDiag("backup failed: " + (e && (e.name || e.message) || e));
+      if (screen === "home" || screen === "stats") draw();
+    });
+  }
+
+  store.onChange = function () {
+    clearTimeout(backupTimer);
+    backupTimer = setTimeout(saveBackup, 300);
+  };
+
+  function boot() {
+    if (store.hasProfile()) { draw(); startScan(); } else openSettings();
+    saveBackup();
+  }
+
+  if (store.hasData()) {
+    boot();
+  } else {
+    backup.load().then(function (snap) {
+      logDiag("backup check: " + (snap ? "restored" : "none found") + " " + (backup.problems || []).join(","));
+      if (snap) store.restore(snap);
+    }, function (e) {
+      logDiag("backup read failed: " + (e && (e.name || e.message) || e));
+    }).then(boot);
+  }
 })();

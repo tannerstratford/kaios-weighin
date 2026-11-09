@@ -4,7 +4,7 @@
 
   function Store(storage) {
     this.s = storage;
-    this.cfg = this.read(CFG, { unit: "lb", sex: "male", cm: 0, age: 0, goalKg: 0, mac: "", lastId: null });
+    this.cfg = this.read(CFG, { unit: "lb", sex: "male", cm: 0, birth: "", goalKg: 0, mac: "", lastId: null });
     this.log = this.read(LOG, []);
   }
 
@@ -14,9 +14,20 @@
       return v ? JSON.parse(v) : fallback;
     } catch (e) { return fallback; }
   };
-  Store.prototype.saveCfg = function () { this.s.setItem(CFG, JSON.stringify(this.cfg)); };
-  Store.prototype.saveLog = function () { this.s.setItem(LOG, JSON.stringify(this.log)); };
-  Store.prototype.hasProfile = function () { return this.cfg.cm > 0 && this.cfg.age > 0; };
+  Store.prototype.saveCfg = function () { this.s.setItem(CFG, JSON.stringify(this.cfg)); this.changed(); };
+  Store.prototype.saveLog = function () { this.s.setItem(LOG, JSON.stringify(this.log)); this.changed(); };
+  Store.prototype.hasProfile = function () { return this.cfg.cm > 0 && !!this.cfg.birth; };
+  Store.prototype.changed = function () { if (this.onChange) this.onChange(); };
+  Store.prototype.hasData = function () { return this.hasProfile() || this.log.length > 0; };
+  Store.prototype.snapshot = function () { return { cfg: this.cfg, log: this.log }; };
+  Store.prototype.restore = function (snap) {
+    if (!snap || !snap.cfg || !Array.isArray(snap.log)) return false;
+    this.cfg = snap.cfg;
+    this.log = snap.log;
+    this.saveCfg();
+    this.saveLog();
+    return true;
+  };
 
   // Records one final frame. Returns the new entry, or null when it is ignored.
   Store.prototype.addFrame = function (f, now) {
