@@ -1,12 +1,13 @@
 {
   "name": "WeighIn",
-  "version": "1.1",
+  "version": "1.2",
   "package_path": "https://tannerstratford.github.io/kaios-weighin/Apps-directory/WeighIn/application.zip",
-  "packaged_size": 19306,
-  "size": 19306,
+  "packaged_size": 19319,
+  "size": 19319,
   "type": "web",
   "b2g_features": {
-    "version": "1.1",
+    "focus_color": "#2f6fed",
+    "version": "1.2",
     "origin": "weighin",
     "permissions": {
       "bluetooth": {}
