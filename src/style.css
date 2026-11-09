@@ -1,0 +1,20 @@
+html, body { margin: 0; height: 100%; background: #0f1115; color: #e8e8e8; font: 15px sans-serif; overflow: hidden; }
+body { display: flex; flex-direction: column; }
+#title { background: #1b2230; text-align: center; padding: 3px; font-weight: bold; }
+#view { flex: 1; overflow: hidden; padding: 6px; }
+#keys { display: flex; justify-content: space-between; align-items: center; height: 24px; padding: 0 6px; background: #222; font-size: 13px; }
+#keys span { flex: 1; } #kc { text-align: center; font-weight: bold; } #kr { text-align: right; }
+.big { font-size: 44px; font-weight: bold; text-align: center; line-height: 54px; }
+.unit { font-size: 18px; font-weight: normal; }
+.center { text-align: center; }
+.bmi { font-size: 20px; text-align: center; margin: 2px 0; }
+.dim { color: #9aa3ad; font-size: 13px; }
+.status { margin-top: 8px; color: #8fd18f; text-align: center; font-size: 14px; }
+.row { display: flex; justify-content: space-between; padding: 4px 3px; border-bottom: 1px solid #252b35; }
+.row b { font-weight: 600; }
+.sel { background: #2f6fed; color: #fff; }
+.sel .dim { color: #dfe8ff; }
+label.field { display: flex; justify-content: space-between; align-items: center; padding: 3px; }
+.field input { width: 72px; font-size: 15px; background: #000; color: #fff; border: 1px solid #555; text-align: right; }
+.field.sel { background: #2f6fed; }
+pre { margin: 0; font: 10px monospace; white-space: pre-wrap; word-break: break-all; }

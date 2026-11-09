@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "categories": [
+    "Utilities"
+  ],
+  "apps": [
+    {
+      "folder": "WeighIn",
+      "name": "WeighIn",
+      "version": "1.0",
+      "category": "Utilities",
+      "description": "Weight, BMI and trends from a Bluetooth broadcast scale",
+      "sha256": "0068dae8c1696be8c0df2c4a5774cd6cb53575744dd356c1f10c82940cded103"
+    }
+  ]
+}
