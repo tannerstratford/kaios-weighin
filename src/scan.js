@@ -145,19 +145,21 @@
 
   Probe.prototype.startScan = function () {
     var self = this;
-    return this.adapter.startLeScan([]).then(function (h) {
+    this.pending = this.adapter.startLeScan([]).then(function (h) {
+      if (!self.running) return self.adapter.stopLeScan(h);
       self.handle = h;
       h.ondevicefound = function (ev) { self.onFound(ev); };
       if (self.status) self.status("Step on the scale");
       self.restartTimer = setTimeout(function () { self.rotate(); }, RESTART_MS);
     });
+    return this.pending;
   };
 
   // Restarting the scan makes repeat advertisements from known devices show up again.
   Probe.prototype.rotate = function () {
     var self = this;
     if (!this.running) return;
-    this.stopScan().then(function () {
+    this.pending = this.stopScan().then(function () {
       if (self.running) return self.startScan();
     }).catch(function (e) {
       self.log("restart failed: " + (e && e.name || e));
@@ -206,7 +208,11 @@
   Probe.prototype.stop = function () {
     var self = this;
     this.running = false;
-    return this.stopScan().catch(function (e) {
+    clearTimeout(this.restartTimer);
+    // A start or restart may be in flight; let it settle so no scan is left running.
+    return Promise.resolve(this.pending).catch(function () {}).then(function () {
+      return self.stopScan();
+    }).catch(function (e) {
       self.log("stop failed: " + (e && e.name || e));
     }).then(function () {
       self.status("stopped");

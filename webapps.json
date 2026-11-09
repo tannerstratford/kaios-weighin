@@ -7,10 +7,10 @@
     {
       "folder": "WeighIn",
       "name": "WeighIn",
-      "version": "1.3",
+      "version": "1.4",
       "category": "Utilities",
       "description": "Weight, BMI and trends from a Bluetooth broadcast scale",
-      "sha256": "b66a037bd1bf0de71ca1938f232a23726d4be6c1d7a9b6fd0aeaf33787ab79c6"
+      "sha256": "7f46b5f743306a2151318a5f78db66bad08e75889f70da97d3440ac2ff024db1"
     }
   ]
 }

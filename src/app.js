@@ -152,7 +152,7 @@
 
   var scan = new ScaleScan.Probe(navigator, {
     log: function (m) { diag.push(m); if (diag.length > 80) diag.shift(); if (screen === "diag") draw(); },
-    status: function (m) { status = m; if (screen === "home") draw(); },
+    status: function (m) { if (exiting) return; status = m; if (screen === "home") draw(); },
     counts: function () {},
     frame: function (f) {
       var entry = store.addFrame(f, Date.now());
@@ -167,7 +167,37 @@
     stopped: function () {}
   });
 
-  function startScan() { if (store.hasProfile() && !scan.running) scan.start(); }
+  var SCAN_LIMIT_MS = 180000, scanLimitTimer = null, exiting = false;
+
+  function startScan() {
+    if (!store.hasProfile() || scan.running || exiting) return;
+    clearTimeout(scanLimitTimer);
+    scanLimitTimer = setTimeout(pauseScan, SCAN_LIMIT_MS);
+    scan.start();
+  }
+
+  function pauseScan() {
+    if (!scan.running) return;
+    scan.stop().then(function () {
+      status = "Paused. Press 5 to scan";
+      if (screen === "home") draw();
+    });
+  }
+
+  // Closing while a Bluetooth scan is active crashes this phone's system process.
+  function exitApp() {
+    if (exiting) return;
+    exiting = true;
+    clearTimeout(scanLimitTimer);
+    status = "Closing";
+    draw();
+    var close = function () { window.close(); };
+    var failsafe = setTimeout(close, 3000);
+    scan.stop().then(function () {
+      clearTimeout(failsafe);
+      setTimeout(close, 400);
+    });
+  }
 
   function cycle(key, opts, dir) {
     var i = opts.indexOf(form[key]);
@@ -199,6 +229,12 @@
   window.addEventListener("keydown", function (e) {
     if (screen === "settings") { onSettingsKey(e); return; }
     var softL = e.key === "SoftLeft" || e.key === "F1", softR = e.key === "SoftRight" || e.key === "F2";
+    if (screen === "home" && (e.key === "Backspace" || e.key === "EndCall")) {
+      e.preventDefault();
+      exitApp();
+      return;
+    }
+    if (screen === "home" && e.key === "5") { startScan(); return; }
     if (screen === "home") {
       if (softL) { screen = "history"; sel = 0; confirmDel = false; draw(); }
       else if (softR) openSettings();
@@ -221,7 +257,7 @@
   });
 
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) { if (scan.running) scan.stop(); }
+    if (document.hidden) { clearTimeout(scanLimitTimer); if (scan.running) scan.stop(); }
     else startScan();
   });
 
