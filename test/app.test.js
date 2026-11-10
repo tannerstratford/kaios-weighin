@@ -33,7 +33,7 @@ const cm = M.cmFromFtIn(6, 2);
 assert.ok(Math.abs(cm - 187.96) < 1e-6);
 assert.deepStrictEqual(M.ftInFromCm(cm), { ft: 6, inch: 2 });
 assert.strictEqual(M.bmi(108.5, cm).toFixed(1), "30.7");
-assert.strictEqual(M.category(30.7), "Obese"); assert.strictEqual(M.category(24.9), "Healthy"); assert.strictEqual(M.category(18.4), "Underweight");
+assert.strictEqual(M.category(30.7), "Obese"); assert.strictEqual(M.category(24.9), "Normal"); assert.strictEqual(M.category(18.4), "Underweight");
 const r = M.healthyRange(cm);
 assert.strictEqual(Math.round(M.toDisplay(r.min, "lb")), 144); assert.strictEqual(Math.round(M.toDisplay(r.max, "lb")), 194);
 assert.strictEqual(M.bmr(100, 180, 30, "male"), 1980); assert.strictEqual(M.bmr(100, 180, 30, "female"), 1814);
@@ -81,3 +81,18 @@ function ds(failAdd) {
   assert.strictEqual(await new FileBackup("other", nav).load(), null);
   console.log("all passed");
 })().catch(e => { console.error(e); process.exit(1); });
+
+// BMI bar
+{
+  const M2 = require("../src/metrics.js");
+  assert.strictEqual(M2.barPosition(10), 0);
+  assert.strictEqual(M2.barPosition(18.5), 0.25);
+  assert.strictEqual(M2.barPosition(25), 0.5);
+  assert.strictEqual(M2.barPosition(30), 0.75);
+  assert.strictEqual(M2.barPosition(50), 1);
+  assert.ok(Math.abs(M2.barPosition(35) - 0.875) < 1e-9);
+  const w = M2.cutWeights(187.96);
+  assert.ok(Math.abs(w[0] - 65.36) < 0.01 && Math.abs(w[2] - 105.99) < 0.01, String(w));
+  assert.strictEqual(M2.category(29.9), "Overweight");
+  console.log("bmi bar ok");
+}

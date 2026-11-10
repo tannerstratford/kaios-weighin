@@ -37,7 +37,7 @@
     } else {
       h += '<div class="big">--</div><div class="center dim">No weigh-ins yet</div>';
     }
-    if (backupState === "Failed") h += '<div class="center dim">Backup failed. See Settings</div>';
+    if (/^Failed/.test(backupState)) h += '<div class="center dim">Backup failed. See Settings</div>';
     if (justRecorded) h += '<div class="status">Saved ' + fmtU(justRecorded.kg) + "</div>";
     h += '<div class="status">' + esc(status) + "</div>";
     view.innerHTML = h;
@@ -49,18 +49,36 @@
     var c = store.cfg, e = last(), now = Date.now(), h = "";
     function row(a, b) { h += '<div class="row"><span>' + a + "</span><b>" + b + "</b></div>"; }
     var a7 = M.average(store.log, 7, now), a30 = M.average(store.log, 30, now), r = M.healthyRange(c.cm);
+    h += bmiBar(e);
     row("7-day avg", a7 ? fmtU(a7.kg) : "--");
     row("30-day avg", a30 ? fmtU(a30.kg) : "--");
-    row("Healthy range", Math.round(M.toDisplay(r.min, unit())) + "-" + Math.round(M.toDisplay(r.max, unit())) + " " + unit());
+    row("Normal range", Math.round(M.toDisplay(r.min, unit())) + "-" + Math.round(M.toDisplay(r.max, unit())) + " " + unit());
     if (e) row("BMR est.", M.bmr(e.kg, c.cm, M.ageOn(c.birth, now), c.sex) + " kcal");
     if (c.goalKg) {
       row("Goal", fmtU(c.goalKg));
       if (e) row("To goal", signed(c.goalKg - e.kg) + " " + unit());
     }
     row("Weigh-ins", store.log.length);
-    row("Backup", backupState);
     view.innerHTML = h;
     keys("", "", "Back");
+  }
+
+  // Four equal segments (Under, Normal, Over, Obese) with the category start
+  // weights under the joins and a marker for the latest weigh-in.
+  function bmiBar(e) {
+    var cuts = M.cutWeights(store.cfg.cm), h = '<div class="bar">';
+    for (var i = 0; i < 4; i++) h += '<span class="seg s' + i + '"></span>';
+    if (e) h += '<i class="mark" style="left:' + (M.barPosition(M.bmi(e.kg, store.cfg.cm)) * 100).toFixed(1) + '%"></i>';
+    h += '</div><div class="barcuts">';
+    cuts.forEach(function (kg, i) {
+      h += '<span style="left:' + (i + 1) * 25 + '%">' + Math.round(M.toDisplay(kg, unit())) + "</span>";
+    });
+    h += '</div><div class="barnames"><span>Under</span><span>Normal</span><span>Over</span><span>Obese</span></div>';
+    if (e) {
+      var b = M.bmi(e.kg, store.cfg.cm);
+      h += '<div class="center dim">BMI ' + b.toFixed(1) + " &middot; " + M.category(b) + "</div>";
+    }
+    return h;
   }
 
   function renderHistory() {
@@ -96,7 +114,7 @@
 
   var FIELDS = [
     ["ft", "Height ft"], ["inch", "Height in"], ["by", "Birth year"], ["bm", "Birth month"], ["bd", "Birth day"], ["sex", "Sex"], ["unit", "Units"], ["goal", "Goal weight"],
-    ["forget", "Forget scale"], ["diag", "Diagnostics"]
+    ["backup", "Backup"], ["forget", "Forget scale"], ["diag", "Diagnostics"]
   ];
 
   function renderSettings() {
@@ -105,6 +123,7 @@
     FIELDS.forEach(function (f, i) {
       var k = f[0], cls = "field" + (i === sel ? " sel" : "");
       if (k === "sex" || k === "unit") h += '<label class="' + cls + '"><span>' + f[1] + "</span><span>&lt; " + esc(form[k]) + " &gt;</span></label>";
+      else if (k === "backup") h += '<label class="' + cls + '"><span>' + f[1] + "</span><span>" + esc(backupState) + "</span></label>";
       else if (k === "forget" || k === "diag") h += '<label class="' + cls + '"><span>' + f[1] + "</span><span>OK</span></label>";
       else h += '<label class="' + cls + '"><span>' + f[1] + '</span><input id="f-' + k + '" inputmode="decimal" value="' + esc(form[k]) + '"></label>';
     });
@@ -216,6 +235,8 @@
       draw(); e.preventDefault();
     } else if (e.key === "Enter" && k === "forget") {
       store.forgetScale(); title.textContent = "Scale forgotten";
+    } else if (e.key === "Enter" && k === "backup") {
+      backup.lastText = null; saveBackup();
     } else if (e.key === "Enter" && k === "diag") {
       screen = "diag"; draw();
     } else if (e.key === "SoftRight" || e.key === "F2") {
@@ -263,16 +284,34 @@
 
   function logDiag(m) { diag.push(m); if (diag.length > 80) diag.shift(); }
 
+  function showBackup() { if (screen === "home" || screen === "settings") draw(); }
+
+  // Settings rows are redrawn without losing what is typed in their inputs.
+  function redraw() { if (screen === "settings") { captureField(); draw(); focusField(); } else showBackup(); }
+
   function saveBackup() {
-    if (!store.hasData()) return;
+    if (!store.hasData()) { backupState = "Nothing to save"; redraw(); return; }
+    var prev = backupState, done = false;
+    backupState = "Saving";
+    redraw();
+    // A storage permission request that never answers would otherwise look like nothing happened.
+    var slow = setTimeout(function () {
+      if (done) return;
+      backupState = "Waiting for storage";
+      logDiag("backup still waiting after 8 s; check app storage permission");
+      redraw();
+    }, 8000);
     backup.save(store.snapshot()).then(function (wrote) {
+      done = true; clearTimeout(slow);
       if (wrote) { backupState = "Saved " + when(Date.now()); logDiag("backup saved"); }
-      else if (backupState === "Not saved yet") backupState = "Up to date";
-      if (screen === "home" || screen === "stats") draw();
+      else backupState = /^Saved/.test(prev) ? prev : "Up to date";
+      redraw();
     }, function (e) {
-      backupState = "Failed";
-      logDiag("backup failed: " + (e && (e.name || e.message) || e));
-      if (screen === "home" || screen === "stats") draw();
+      done = true; clearTimeout(slow);
+      var why = e && (e.name || e.message) || String(e);
+      backupState = "Failed: " + why;
+      logDiag("backup failed: " + why);
+      redraw();
     });
   }
 

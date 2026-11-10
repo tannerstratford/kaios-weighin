@@ -4,16 +4,35 @@
 
   function bmi(kg, cm) { return kg / Math.pow(cm / 100, 2); }
 
+  // Adult BMI categories used by the WHO and CDC.
+  var CUTS = [18.5, 25, 30];
+  var NAMES = ["Underweight", "Normal", "Overweight", "Obese"];
+
   function category(b) {
-    if (b < 18.5) return "Underweight";
-    if (b < 25) return "Healthy";
-    if (b < 30) return "Overweight";
-    return "Obese";
+    for (var i = 0; i < CUTS.length; i++) if (b < CUTS[i]) return NAMES[i];
+    return NAMES[3];
   }
 
   function healthyRange(cm) {
     var m2 = Math.pow(cm / 100, 2);
     return { min: 18.5 * m2, max: 24.9 * m2 };
+  }
+
+  // Weights where each category starts, for the given height.
+  function cutWeights(cm) {
+    var m2 = Math.pow(cm / 100, 2);
+    return CUTS.map(function (c) { return c * m2; });
+  }
+
+  // Where a BMI falls on a bar of four equal-width segments, from 0 to 1.
+  // Outer segments cover BMI 15-18.5 and 30-40; values beyond are pinned to the ends.
+  function barPosition(b) {
+    var edges = [15, 18.5, 25, 30, 40];
+    if (b <= edges[0]) return 0;
+    for (var i = 0; i < 4; i++) {
+      if (b < edges[i + 1]) return (i + (b - edges[i]) / (edges[i + 1] - edges[i])) / 4;
+    }
+    return 1;
   }
 
   // Mifflin-St Jeor resting energy estimate, kcal/day.
@@ -53,7 +72,8 @@
   }
 
   var api = {
-    bmi: bmi, category: category, healthyRange: healthyRange, bmr: bmr, average: average,
+    bmi: bmi, category: category, healthyRange: healthyRange, cutWeights: cutWeights, barPosition: barPosition, NAMES: NAMES,
+    bmr: bmr, average: average,
     toDisplay: toDisplay, fromDisplay: fromDisplay, ageOn: ageOn, birthDate: birthDate, cmFromFtIn: cmFromFtIn, ftInFromCm: ftInFromCm
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -18,3 +18,11 @@ label.field { display: flex; justify-content: space-between; align-items: center
 .field input { width: 72px; font-size: 15px; background: #000; color: #fff; border: 1px solid #555; text-align: right; }
 .field.sel { background: #2f6fed; }
 pre { margin: 0; font: 10px monospace; white-space: pre-wrap; word-break: break-all; }
+.bar { position: relative; display: flex; height: 12px; margin: 6px 4px 0; }
+.seg { flex: 1; }
+.s0 { background: #4a90d9; } .s1 { background: #3aa864; } .s2 { background: #e0a030; } .s3 { background: #d9534f; }
+.mark { position: absolute; top: -4px; width: 4px; height: 20px; margin-left: -2px; background: #fff; border: 1px solid #000; }
+.barcuts { position: relative; height: 15px; margin: 2px 4px 0; font-size: 11px; color: #9aa3ad; }
+.barcuts span { position: absolute; transform: translateX(-50%); }
+.barnames { display: flex; margin: 0 4px 4px; font-size: 11px; }
+.barnames span { flex: 1; text-align: center; }

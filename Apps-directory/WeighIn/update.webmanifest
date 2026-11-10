@@ -1,13 +1,13 @@
 {
   "name": "WeighIn",
-  "version": "1.4",
+  "version": "1.5",
   "package_path": "https://tannerstratford.github.io/kaios-weighin/Apps-directory/WeighIn/application.zip",
-  "packaged_size": 22029,
-  "size": 22029,
+  "packaged_size": 23136,
+  "size": 23136,
   "type": "web",
   "b2g_features": {
     "focus_color": "#2f6fed",
-    "version": "1.4",
+    "version": "1.5",
     "origin": "weighin",
     "permissions": {
       "device-storage:sdcard": {
