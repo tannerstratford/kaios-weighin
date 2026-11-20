@@ -96,3 +96,15 @@ function ds(failAdd) {
   assert.strictEqual(M2.category(29.9), "Overweight");
   console.log("bmi bar ok");
 }
+
+// Trend line
+{
+  const D = 86400000, pts = [];
+  for (let i = 0; i < 200; i++) pts.push({ t: i * D, kg: 110 - i * 0.05 + (i % 2 ? 0.8 : -0.8) });
+  const tr = M.trend(pts, 0, 199 * D, 40, M.trendWidth(pts));
+  assert.strictEqual(tr.length, 40);
+  tr.forEach(p => assert.ok(Math.abs(p.kg - (110 - p.t / D * 0.05)) < 0.3, "trend follows the slope, not the noise"));
+  assert.deepStrictEqual(M.trend([{ t: 0, kg: 90 }], 0, 1, 5, D), []);
+  const same = M.trend([{ t: 5, kg: 90 }, { t: 5, kg: 92 }], 0, 10, 3, D);
+  same.forEach(p => assert.ok(Math.abs(p.kg - 91) < 1e-9, "one cluster gives its mean"));
+}

@@ -26,3 +26,4 @@ pre { margin: 0; font: 10px monospace; white-space: pre-wrap; word-break: break-
 .barcuts span { position: absolute; transform: translateX(-50%); }
 .barnames { display: flex; margin: 0 4px 4px; font-size: 11px; }
 .barnames span { flex: 1; text-align: center; }
+#chart { display: block; margin: 0 auto 4px; }

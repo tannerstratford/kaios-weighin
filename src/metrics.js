@@ -63,6 +63,40 @@
     return y + "-" + ("0" + m).slice(-2) + "-" + ("0" + d).slice(-2);
   }
 
+  // Smooth trend through weigh-ins: local linear regression with a Gaussian
+  // kernel, evaluated at n evenly spaced times from t0 to t1. h is the kernel
+  // width in ms. Returns [{t, kg}], or [] when there are fewer than 2 points.
+  function trend(points, t0, t1, n, h) {
+    if (points.length < 2) return [];
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var t = n > 1 ? t0 + (t1 - t0) * i / (n - 1) : t0;
+      var sw = 0, st = 0, sy = 0;
+      points.forEach(function (p) {
+        var w = Math.exp(-0.5 * Math.pow((p.t - t) / h, 2));
+        sw += w; st += w * (p.t - t); sy += w * p.kg;
+      });
+      if (sw < 1e-9) continue;
+      var mt = st / sw, my = sy / sw, sxx = 0, sxy = 0;
+      points.forEach(function (p) {
+        var w = Math.exp(-0.5 * Math.pow((p.t - t) / h, 2)), dt = p.t - t - mt;
+        sxx += w * dt * dt; sxy += w * dt * (p.kg - my);
+      });
+      // Too little spread for a slope (one cluster): fall back to the weighted mean.
+      var slope = sxx > sw * h * h * 1e-3 ? sxy / sxx : 0;
+      out.push({ t: t, kg: my - slope * mt });
+    }
+    return out;
+  }
+
+  // Kernel width for a chart: wide enough to smooth daily noise, narrow
+  // enough to keep the shape; never narrower than the average gap.
+  function trendWidth(points) {
+    if (points.length < 2) return DAY;
+    var span = points[points.length - 1].t - points[0].t;
+    return Math.max(span / 14, 1.5 * DAY, span / points.length);
+  }
+
   function toDisplay(kg, unit) { return unit === "kg" ? kg : kg * LB; }
   function fromDisplay(v, unit) { return unit === "kg" ? v : v / LB; }
   function cmFromFtIn(ft, inch) { return (ft * 12 + inch) * 2.54; }
@@ -73,7 +107,7 @@
 
   var api = {
     bmi: bmi, category: category, healthyRange: healthyRange, cutWeights: cutWeights, barPosition: barPosition, NAMES: NAMES,
-    bmr: bmr, average: average,
+    bmr: bmr, average: average, trend: trend, trendWidth: trendWidth,
     toDisplay: toDisplay, fromDisplay: fromDisplay, ageOn: ageOn, birthDate: birthDate, cmFromFtIn: cmFromFtIn, ftInFromCm: ftInFromCm
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

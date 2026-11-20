@@ -60,6 +60,21 @@
     }
     row("Weigh-ins", store.log.length);
     view.innerHTML = h;
+    keys("Chart", "", "Back");
+  }
+
+  var chartRange = 0;
+  function renderChart() {
+    var R = WeighChart.RANGES;
+    title.textContent = "\u25C0 " + R[chartRange].name + " \u25B6";
+    view.innerHTML = '<canvas id="chart" width="228" height="190"></canvas><div class="center dim" id="cap"></div>';
+    var res = WeighChart.draw(document.getElementById("chart"), {
+      log: store.log, range: chartRange, now: Date.now(), goalKg: store.cfg.goalKg,
+      toDisp: function (kg) { return M.toDisplay(kg, unit()); }
+    });
+    var cap = res.n + " weigh-in" + (res.n === 1 ? "" : "s");
+    if (res.change != null) cap += " &middot; trend " + (res.change >= 0 ? "+" : "") + res.change.toFixed(1) + " " + unit();
+    document.getElementById("cap").innerHTML = cap;
     keys("", "", "Back");
   }
 
@@ -165,6 +180,7 @@
     if (screen === "home") renderHome();
     else if (screen === "stats") renderStats();
     else if (screen === "history") renderHistory();
+    else if (screen === "chart") renderChart();
     else if (screen === "settings") renderSettings();
     else renderDiag();
   }
@@ -177,7 +193,7 @@
       var entry = store.addFrame(f, Date.now());
       if (entry) {
         justRecorded = entry;
-        if (screen === "home" || screen === "history" || screen === "stats") draw();
+        if (screen === "home" || screen === "history" || screen === "stats" || screen === "chart") draw();
       } else if (!f.final && f.kg > 5 && screen === "home") {
         status = "Reading " + fmtU(f.kg);
         draw();
@@ -261,6 +277,12 @@
       else if (softR) openSettings();
       else if (e.key === "Enter") { screen = "stats"; draw(); }
       return;
+    }
+    if (screen === "stats" && softL) { screen = "chart"; draw(); return; }
+    if (screen === "chart" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      var nr = WeighChart.RANGES.length;
+      chartRange = (chartRange + (e.key === "ArrowRight" ? 1 : nr - 1)) % nr;
+      draw(); e.preventDefault(); return;
     }
     if (softR || e.key === "Backspace") {
       screen = "home"; draw(); e.preventDefault();
